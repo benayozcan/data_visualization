@@ -1,0 +1,167 @@
+---
+title: "R_odev_proje"
+output: html_document
+date: "2022-12-16"
+---
+
+
+```{r}
+df = read.csv("C:/Users/benay/Documents/proje/giris/r_proje_.csv")
+```
+
+
+```{r}
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+```
+
+```{r}
+df
+```
+#ID: Müşteri Numarası
+#Year_Birth: Müşteri Eğitim Seviyesi
+#Education: Müşterinin Eğitim Seviyesi
+#Marital_Status: Müşterinin Medeni Durumu
+#Income: Müşterinin Yıllık Hane Geliri
+#Kidhome: Müşterinin hanesindeki çocuk sayısı
+#Teenhome: Müşterinin hanesindeki genç sayısı
+#Dt_Customer: Müşterinin şirkete kayıt tarihi
+#Recency: Müşterinin son satın alımından bu yana geçen gün sayısı
+#Complain: Müşteri son 2 yılda şikatte bulunduysa 1, aksi halde 0
+#
+#MntWines: Son 2 yılda şaraba harcanan miktar
+#MntFruits: Son 2 yılda meyveye harcanan miktar
+#MntMeatProducts: Son 2 yılda ete harcanan miktar
+#MntFishProducts: Son 2 yılda balığa harcanan miktar
+#MntSweetProducts: Son 2 yılda tatlıya harcanan miktar
+#MntGoldProds: Son 2 yılda altına harcanan miktar
+#
+#NumWebPurchases: Şirketin Web Sitesi üzerinden yapılan satın alma sayısı
+#NumCatalogPurchases: Katalog kullanılarak yapılan satın alma sayısı
+#NumStorePurchases: Doğrudan marketten yapılan satın alma sayısı
+#NumWebVisitsMonth: Geçen ay şirketin web sitesiden yapılan arama sayısı
+#
+#NumDealsPurchases: İndirimle yapılan satın alma sayısı
+#AcceptedCmp1: 1.kampanyada müşteri teklifi kabul etmiş ise 1, aksi halde 0
+#AcceptedCmp2: 2.kampanyada müşteri teklifi kabul etmiş ise 1, aksi halde 0
+#AcceptedCmp3: 3.kampanyada müşteri teklifi kabul etmiş ise 1, aksi halde 0
+#AcceptedCmp4: 4.kampanyada müşteri teklifi kabul etmiş ise 1, aksi halde 0
+#AcceptedCmp5: 5.kampanyada müşteri teklifi kabul etmiş ise 1, aksi halde 0
+#Response: Müşteri son kampanyadaki (6.teklif) teklifi kabul etmiş ise 1, aksi hande 0
+
+```{r}
+colnames(df)
+```
+
+
+
+```{r}
+str(df)
+```
+```{r}
+df$Education <- factor(df$Education, levels = c("Basic","2n Cycle","Graduation","Master","PhD"))
+```
+
+
+```{r}
+summary(df) #Sonuçlara göre 'Income' değişkeninde 24 Eksik değer vardir.
+```
+```{r}
+df$Income[is.na(df$Income)] <- mean(df$Income, na.rm = TRUE)
+```
+
+
+
+
+
+#Hipotez1: Egitim ve gelir arttiginda web sitesinden yapilan satislar artar.
+```{r}
+df %>%
+  group_by(Education, NumWebPurchases) %>%
+  summarise(avg_income = mean(Income)) %>%
+  mutate_if(is.numeric, round,0) %>%
+  arrange(avg_income) %>%
+  ggplot()+
+  geom_point(aes(x = avg_income, y= NumWebPurchases, color= Education, shape = Education))+ 
+  facet_wrap(~ Education, nrow = 1)+
+  ggtitle("Ortalama Gelir ve Eğitime Göre Webden Yapılan Alışveriş Sayısı") +
+           xlab("Ortalama Gelir") +
+           ylab("Webden Yapılan Alışveriş")+
+           theme_minimal()+theme(axis.text.x = element_text(angle = 90))
+```
+
+#Hipotez2:	“Çok genç” yaş grubundakilerin en çok tercih ettiği satış kanalı webdir ve webdeki en çok satış yapılan yaş grubu da “Çok genç”tir.
+```{r}
+df %>% 
+  select(Year_Birth, grep("Num", colnames(df), value=T)) %>%
+  mutate(Yas_Group = case_when(Year_Birth >= 1976  ~ "Cok Genc", Year_Birth >= 1956 ~ "Genc", Year_Birth >=1936 ~ "Orta Yasli", Year_Birth >= 1896 ~ "Yasli", Year_Birth >=1876 ~"Cok Yasli")) %>%
+  group_by(Yas_Group) %>%
+  summarise(KBD_Web = mean(NumWebPurchases), KBD_WebVisition = mean(NumWebVisitsMonth), KBD_katalog = mean(NumCatalogPurchases), KBD_Market = mean(NumStorePurchases)) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(Yas_Group=ordered(Yas_Group, levels=c("Cok Genc","Genc","Orta Yasli","Yasli","Cok Yasli"))) %>%
+  gather(key=Nereden, value=sayi, -Yas_Group) %>%
+  ggplot(aes(x=Nereden, y=sayi, fill=Yas_Group))+
+  geom_col(width = 0.7, position = position_dodge())+
+  ggtitle("Alışveriş için Tercih Edilen Yerlerin Yaşlara Göre Dağılımı") +
+           xlab("Alışverişin Yapıldığı Yer") +
+           ylab("Kişi Başına Düşen Ortalama Alışveriş Sayısı")+
+           theme_minimal()
+  theme_minimal()
+```
+
+#Hipotez3: Yas arttıkça, gelir artar.
+```{r}
+df %>% mutate(Yas_Group = case_when(Year_Birth >= 1976  ~ "Cok Genc", Year_Birth >= 1956 ~ "Genc", Year_Birth >=1936 ~ "Orta Yasli", Year_Birth >= 1896 ~ "Yasli", Year_Birth >=1876 ~"Cok Yasli")) %>%
+  group_by(Yas_Group) %>%
+  summarise(ort_gelir=mean(Income)) %>%
+  mutate(Yas_Group = ordered(Yas_Group, levels= c("Cok Genc","Genc","Orta Yasli","Yasli","Cok Yasli"))) %>%
+  mutate_if(is.numeric, round, 0) %>%
+  ggplot(aes(x = Yas_Group, y = ort_gelir))+
+  geom_col(width = 0.08, color= "purple", fill="white")+
+  ggtitle("Yaş Gruplarına Göre Kişi Başına Düşen Ortalama Gelir") +
+           xlab("Yaş Grupları") +
+           ylab("Kişi Başına Düşen Ortalama Gelir")+
+  theme_minimal()
+```
+
+#Hipotez4: Cocuk sayisi arttikca "altin"a yapilan yatirim azalir. (gelirin yüzde kaçıyla altın alındığı hesaplanmıştır)
+```{r}
+yuzde <- function(x,y){
+  sonuc = (y/x)*100
+  return(sonuc)
+}
+```
+
+```{r}
+df %>%mutate(altin_gelir = yuzde(Income,MntGoldProds)) %>%
+  mutate_if(is.numeric,round, 4) %>%
+  group_by(Kidhome) %>%
+  summarise(ort=mean(altin_gelir)) %>%
+  ggplot()+
+  aes(x=Kidhome, y = ort)+
+  geom_col(width=1, fill = c("steelblue","purple","pink"))+
+  ggtitle("Çocuk Sayısı ve Gelire Göre 'Altın'a Yapılan Yatırım") +
+           xlab("Çocuk Sayısı") +
+           ylab("Gelire göre 'Altın'a Yapılan Yatırım Oranı")+
+           theme_minimal()
+```
+
+#Hipotez5: Cocuklu kisilerin, diğer yerlere göre (web, katalog, market); marketten yaptigi alisveris daha yuksektir.
+```{r}
+df %>% select(Kidhome, grep("Num",colnames(df), value=T)) %>%
+  mutate(Kidhome=ordered(Kidhome, levels = c("0","1","2"))) %>%
+  filter(grepl("1|2", Kidhome)) %>%
+  group_by(Kidhome) %>%
+  summarise(WebSatis=mean(NumWebPurchases), KatalogSatis=mean(NumCatalogPurchases), MarketSatis = mean(NumStorePurchases),WebZiyaret=mean(NumWebVisitsMonth)) %>%
+  mutate_if(is.numeric,round,2) %>%
+  gather(key=Neresi, value=sayi, -Kidhome)%>%
+  ggplot(aes(x=Neresi,y=sayi,color=Kidhome,fill=Kidhome))+
+  geom_col(width = 0.7, position = position_dodge())+
+  ggtitle("Çocuklu Kişilerin Alışveriş için Tercih Ettiği Yerler") +
+           xlab("Alışverişin Yapıldığı Yer")+
+           ylab("Kişi Başına Düşen Ortalama Alışveriş Sayısı")+
+           theme_minimal()
+```
+
